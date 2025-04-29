@@ -1,282 +1,187 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Search } from "lucide-react"
-import { candidateData } from "@/lib/data"
+import Link from "next/link"
 import Image from "next/image"
-
-// Simple client-side analytics for preview mode
-interface AnalyticsData {
-  visitors: Record<string, Record<string, boolean>>
-  searches: Record<string, Record<string, Array<{ query: string; timestamp: string }>>>
-  dailyStats: Record<
-    string,
-    {
-      uniqueVisitors: number
-      totalVisits: number
-      searches: number
-      searchQueries: Record<string, number>
-    }
-  >
-}
-
-// Function to track analytics client-side as fallback
-const trackClientSide = (type: "visit" | "search", query?: string) => {
-  try {
-    // Get current date as YYYY-MM-DD
-    const today = new Date().toISOString().split("T")[0]
-
-    // Get existing data from localStorage or initialize
-    let analyticsData: AnalyticsData
-    const storedData = localStorage.getItem("analytics-data")
-
-    if (storedData) {
-      analyticsData = JSON.parse(storedData)
-    } else {
-      analyticsData = {
-        visitors: {},
-        searches: {},
-        dailyStats: {},
-      }
-    }
-
-    // Initialize today's data if it doesn't exist
-    if (!analyticsData.dailyStats[today]) {
-      analyticsData.dailyStats[today] = {
-        uniqueVisitors: 0,
-        totalVisits: 0,
-        searches: 0,
-        searchQueries: {},
-      }
-    }
-
-    // Track visitor
-    if (type === "visit") {
-      // Increment total visits
-      analyticsData.dailyStats[today].totalVisits++
-
-      // Use a client ID from localStorage
-      let clientId = localStorage.getItem("client-id")
-      if (!clientId) {
-        clientId = `client-${Math.random().toString(36).substring(2, 15)}`
-        localStorage.setItem("client-id", clientId)
-      }
-
-      // Track unique visitor
-      if (!analyticsData.visitors[today]) {
-        analyticsData.visitors[today] = {}
-      }
-
-      if (!analyticsData.visitors[today][clientId]) {
-        analyticsData.visitors[today][clientId] = true
-        analyticsData.dailyStats[today].uniqueVisitors++
-      }
-    }
-
-    // Track search
-    if (type === "search" && query) {
-      // Increment total searches
-      analyticsData.dailyStats[today].searches++
-
-      // Track search query
-      if (!analyticsData.dailyStats[today].searchQueries[query]) {
-        analyticsData.dailyStats[today].searchQueries[query] = 0
-      }
-      analyticsData.dailyStats[today].searchQueries[query]++
-
-      // Use a client ID from localStorage
-      let clientId = localStorage.getItem("client-id")
-      if (!clientId) {
-        clientId = `client-${Math.random().toString(36).substring(2, 15)}`
-        localStorage.setItem("client-id", clientId)
-      }
-
-      // Track searches by client ID
-      if (!analyticsData.searches[today]) {
-        analyticsData.searches[today] = {}
-      }
-
-      if (!analyticsData.searches[today][clientId]) {
-        analyticsData.searches[today][clientId] = []
-      }
-
-      analyticsData.searches[today][clientId].push({
-        query,
-        timestamp: new Date().toISOString(),
-      })
-    }
-
-    // Save updated data
-    localStorage.setItem("analytics-data", JSON.stringify(analyticsData))
-  } catch (error) {
-    console.error("Error tracking client-side analytics:", error)
-  }
-}
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 
 export default function Home() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<Array<{ id: number; name: string; result: string }>>([])
-  const [searched, setSearched] = useState(false)
-  const [isTracking, setIsTracking] = useState(false)
-
-  // Track page visit on component mount
-  useEffect(() => {
-    const trackVisit = async () => {
-      try {
-        setIsTracking(true)
-
-        // Try server-side tracking first
-        const response = await fetch("/api/analytics/track", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ type: "visit" }),
-        })
-
-        if (!response.ok) {
-          // Fall back to client-side tracking
-          console.warn("Server-side tracking failed, using client-side fallback")
-          trackClientSide("visit")
-        }
-      } catch (error) {
-        console.error("Error tracking visit:", error)
-        // Fall back to client-side tracking
-        trackClientSide("visit")
-      } finally {
-        setIsTracking(false)
-      }
-    }
-
-    trackVisit()
-  }, [])
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([])
-      setSearched(false)
-      return
-    }
-
-    const queryTerms = searchQuery.toLowerCase().trim().split(/\s+/)
-
-    const results = candidateData.filter((candidate) => {
-      const candidateNameWords = candidate.name.toLowerCase().split(/\s+/)
-
-      // Check if each query term matches at least one complete word in the candidate's name
-      return queryTerms.every((term) =>
-        candidateNameWords.some(
-          (word) =>
-            word === term ||
-            // Allow matching if the term is at least 3 characters and is a complete match to the start of a name
-            (term.length >= 3 && word.startsWith(term)),
-        ),
-      )
-    })
-
-    setSearchResults(results)
-    setSearched(true)
-
-    // Track search
-    try {
-      const response = await fetch("/api/analytics/track", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "search",
-          query: searchQuery.trim(),
-        }),
-      })
-
-      if (!response.ok) {
-        // Fall back to client-side tracking
-        console.warn("Server-side search tracking failed, using client-side fallback")
-        trackClientSide("search", searchQuery.trim())
-      }
-    } catch (error) {
-      console.error("Error tracking search:", error)
-      // Fall back to client-side tracking
-      trackClientSide("search", searchQuery.trim())
-    }
-  }
+  // Google Form URL
+  const googleFormUrl = "https://docs.google.com/forms/d/1hJo5CDGBAq_p9k_6psOgZ5jS1O8V2ASq7iG2A7R1FSw/viewform"
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-start p-4 md:p-24">
-      <div className="mb-8 flex justify-center">
-        <Image src="/images/coachb-logo.png" alt="CoachB Logo" width={150} height={80} priority />
-      </div>
-      <Card className="w-full max-w-3xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl md:text-3xl">Assessment Results Portal</CardTitle>
-          <CardDescription>Enter your name or surname to check your second assessment result</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-2">
-            <Input
-              placeholder="Search by name or surname..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="flex-1"
-            />
-            <Button onClick={handleSearch} className="gap-2">
-              <Search size={18} />
-              <span>Search</span>
+    <div className="flex min-h-screen flex-col">
+      <header className="bg-white py-4 border-b">
+        <div className="container flex items-center justify-between">
+          <Link href="/" className="flex items-center">
+            <Image src="/rida-logo.png" alt="Rida Logo" width={120} height={60} className="h-auto" />
+          </Link>
+          <Button asChild className="bg-green-600 hover:bg-green-700">
+            <a href={googleFormUrl} target="_blank" rel="noopener noreferrer">
+              Join Waitlist
+            </a>
+          </Button>
+        </div>
+      </header>
+
+      <main className="flex-1">
+        {/* Hero Section */}
+        <section className="bg-gradient-to-b from-green-50 to-white py-16 md:py-24">
+          <div className="container grid gap-8 md:grid-cols-2 items-center">
+            <div className="space-y-6">
+              <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+                Own the Rida Balm Opportunity in Your City.
+                <span className="text-green-600"> Turn ₦1 Million into ₦5M–₦22M+ within 12 months.</span>
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-700">
+                Join the Waitlist to Become a Rida Balm Distributor in Your Local Government Area.
+              </p>
+              <Button asChild size="lg" className="bg-green-600 hover:bg-green-700 text-lg">
+                <a href={googleFormUrl} target="_blank" rel="noopener noreferrer">
+                  Join the Rida Distributor Waitlist Now
+                </a>
+              </Button>
+            </div>
+            <div className="relative rounded-xl overflow-hidden bg-white p-4 shadow-md">
+              <Image
+                src="/rida-balm-hero.gif"
+                alt="Rida Balm Products - For cold, cramps, aches and pains"
+                width={600}
+                height={400}
+                className="w-full h-auto"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Opening Paragraph */}
+        <section className="py-12 bg-white">
+          <div className="container max-w-3xl">
+            <p className="text-lg md:text-xl text-center leading-relaxed">
+              Rida is expanding — and we're looking for entrepreneurial, forward-thinking partners to lead the movement
+              across cities and local governments.
+            </p>
+            <p className="text-lg md:text-xl text-center leading-relaxed mt-4">
+              If you've ever dreamed of building a real business, growing real wealth, and distributing products that
+              people already love, this is your opportunity.
+            </p>
+            <p className="text-lg md:text-xl text-center leading-relaxed mt-4">
+              With a proven product range and massive demand, Rida distributors are positioned for high-profit,
+              high-impact returns.
+            </p>
+            <p className="text-lg md:text-xl text-center font-semibold mt-4">
+              Slots are limited by location. Reserve your spot now.
+            </p>
+          </div>
+        </section>
+
+        {/* Benefits Section */}
+        <section className="py-12 bg-gray-50">
+          <div className="container max-w-4xl">
+            <h2 className="text-3xl font-bold text-center mb-8">Why Join the Rida Balm Distribution Waitlist?</h2>
+            <div className="grid gap-4">
+              <BenefitItem title="Established Brand" description="Proven products with high demand." />
+              <BenefitItem title="Low Barrier, High Upside" description="Invest from ₦300,000 to ₦1,000,000+" />
+              <BenefitItem title="Real ROI Potential" description="Earn ₦5 Million – ₦22 Million+ within 12 months." />
+              <BenefitItem
+                title="Local Territory Advantage"
+                description="First come, first served per local government."
+              />
+              <BenefitItem
+                title="Marketing Support"
+                description="Starter kits, training, and marketing assets provided."
+              />
+              <BenefitItem title="Flexible Growth" description="Build retail networks or focus on key partnerships." />
+              <BenefitItem
+                title="Be Part of a National Movement"
+                description="Expand with a brand committed to empowerment."
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Numbers Section */}
+        <section className="py-16 bg-green-600 text-white">
+          <div className="container">
+            <h2 className="text-3xl font-bold text-center mb-10">The Numbers That Matter:</h2>
+            <div className="grid md:grid-cols-3 gap-8 text-center">
+              <Card className="bg-white/10 backdrop-blur border-white/20 p-6">
+                <h3 className="text-4xl font-bold mb-2">₦300k - ₦1M+</h3>
+                <p className="text-lg">Starting Investment Range</p>
+              </Card>
+              <Card className="bg-white/10 backdrop-blur border-white/20 p-6">
+                <h3 className="text-4xl font-bold mb-2">Up to 500%+</h3>
+                <p className="text-lg">Potential Return in 12 Months</p>
+              </Card>
+              <Card className="bg-white/10 backdrop-blur border-white/20 p-6">
+                <h3 className="text-4xl font-bold mb-2">500,000+</h3>
+                <p className="text-lg">Active Customers already love Rida products</p>
+              </Card>
+            </div>
+            <p className="text-xl text-center mt-10">Build a business you can be proud of. Start with Rida.</p>
+          </div>
+        </section>
+
+        {/* CTA Section (replacing the form section) */}
+        <section id="waitlist" className="py-16 bg-white">
+          <div className="container max-w-2xl text-center">
+            <h2 className="text-3xl font-bold mb-4">Ready to Join the Rida Distributor Waitlist?</h2>
+            <p className="text-lg text-gray-600 mb-8">
+              Fill out our quick form to secure your spot in your local area. Slots are limited and filling fast!
+            </p>
+            <Button asChild size="lg" className="bg-green-600 hover:bg-green-700 text-lg px-8 py-6">
+              <a href={googleFormUrl} target="_blank" rel="noopener noreferrer">
+                Join the Waitlist Now
+              </a>
             </Button>
           </div>
+        </section>
+      </main>
 
-          {searched && (
-            <div className="mt-6">
-              {searchResults.length > 0 ? (
-                <div className="space-y-4">
-                  <h3 className="font-medium text-sm text-muted-foreground">
-                    Found {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}
-                  </h3>
-                  <div className="border rounded-lg divide-y">
-                    {searchResults.map((candidate) => (
-                      <div key={candidate.id} className="p-4 flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">{candidate.name}</p>
-                          <p className="text-sm text-muted-foreground">Candidate Rank: {candidate.id}</p>
-                        </div>
-                        <Badge
-                          variant={candidate.result === "Above Cutoff" ? "success" : "destructive"}
-                          className={
-                            candidate.result === "Above Cutoff"
-                              ? "bg-green-100 text-green-800 hover:bg-green-100"
-                              : "bg-red-100 text-red-800 hover:bg-red-100"
-                          }
-                        >
-                          {candidate.result}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-6 text-center p-6 border rounded-lg">
-                  <h3 className="font-medium">No results found</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Please check the spelling or try a different name
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-center border-t pt-6">
-          <p className="text-sm text-muted-foreground text-center">
-            This is the official portal for the second assessment results. If you have any questions, please contact
-            hr@coachb.io
-          </p>
-        </CardFooter>
-      </Card>
-    </main>
+      <footer className="bg-gray-900 text-white py-8">
+        <div className="container text-center">
+          <div className="flex justify-center mb-6">
+            <Image src="/rida-logo.png" alt="Rida Logo" width={100} height={50} className="h-auto" />
+          </div>
+          <p>© {new Date().getFullYear()} Rida Balm Distributors. All rights reserved.</p>
+          <div className="flex justify-center gap-4 mt-4">
+            <Link href="#" className="hover:text-green-400">
+              Privacy Policy
+            </Link>
+            <Link href="#" className="hover:text-green-400">
+              Terms of Service
+            </Link>
+            <Link href="#" className="hover:text-green-400">
+              Contact Us
+            </Link>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+function BenefitItem({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3 p-4 bg-white rounded-lg shadow-sm">
+      <div className="text-green-600 mt-1">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <div>
+        <h3 className="font-semibold text-lg">{title}</h3>
+        <p className="text-gray-600">{description}</p>
+      </div>
+    </div>
   )
 }
